@@ -2,11 +2,32 @@ import { createInitialState, interpretUtterance, reconcile, STATUS } from './eng
 
 const STORAGE_KEY = 'careroute-guardian-state-v1';
 let state = loadState();
+const params = new URLSearchParams(location.search);
+const requestedStage = params.get('stage');
+const requestedFocus = params.get('focus');
+if (requestedStage) state = stateForStage(requestedStage);
+if (requestedFocus) document.body.dataset.focus = requestedFocus;
 
 const timelineKeys = [
   ['transport_request', 'Outbound ride'], ['pickup', 'Pickup'], ['in_transit', 'Transit'],
   ['clinic_arrival', 'Clinic'], ['treatment_handoff', 'Handoff'], ['return_trip', 'Return ride'], ['home_arrival', 'Home']
 ];
+
+function stateForStage(stage) {
+  const sequences = {
+    start: [],
+    'ride-failed': ['CHECK_RIDE'],
+    'backup-confirmed': ['CHECK_RIDE','CONTINUE_BACKUP'],
+    pickup: ['CHECK_RIDE','CONTINUE_BACKUP','VERIFY_PICKUP'],
+    clinic: ['CHECK_RIDE','CONTINUE_BACKUP','VERIFY_PICKUP','VERIFY_CLINIC'],
+    'return-exception': ['CHECK_RIDE','CONTINUE_BACKUP','VERIFY_PICKUP','VERIFY_CLINIC','RETURN_EXCEPTION'],
+    'return-resolved': ['CHECK_RIDE','CONTINUE_BACKUP','VERIFY_PICKUP','VERIFY_CLINIC','RETURN_EXCEPTION','RESOLVE_RETURN'],
+    home: ['CHECK_RIDE','CONTINUE_BACKUP','VERIFY_PICKUP','VERIFY_CLINIC','RETURN_EXCEPTION','RESOLVE_RETURN','CONFIRM_HOME']
+  };
+  let snapshot = createInitialState();
+  for (const command of (sequences[stage] || [])) snapshot = reconcile(snapshot, command);
+  return snapshot;
+}
 
 function loadState() {
   try {
@@ -33,6 +54,18 @@ function render() {
   document.querySelector('#evidence-count').textContent = String(state.evidence.length);
   document.querySelector('#history-count').textContent = String(state.history.length);
 
+  const human = humanSummary(state);
+  document.querySelector('#human-status').textContent = human.title;
+  document.querySelector('#human-detail').textContent = human.detail;
+  document.querySelector('#ride-short').textContent = human.ride;
+  document.querySelector('#clinic-short').textContent = human.clinic;
+  document.querySelector('#return-short').textContent = human.returnTrip;
+  document.querySelector('#home-short').textContent = human.home;
+  document.querySelector('[data-key="transport"]').dataset.state = human.transportState;
+  document.querySelector('[data-key="clinic"]').dataset.state = human.clinicState;
+  document.querySelector('[data-key="return"]').dataset.state = human.returnState;
+  document.querySelector('[data-key="home-end"]').dataset.state = human.homeState;
+
   document.querySelector('#conversation').innerHTML = state.conversation.slice(-8).map(m => `<div class="bubble ${m.role}"><span>${m.role === 'alexa' ? 'Alexa+ simulation' : 'You'}</span><p>${escapeHtml(m.text)}</p></div>`).join('');
   const conv = document.querySelector('#conversation'); conv.scrollTop = conv.scrollHeight;
 
@@ -42,7 +75,10 @@ function render() {
   document.querySelector('#evidence-reason-list').innerHTML = current.evidence.map(x => `<li>${escapeHtml(x)}</li>`).join('');
 
   const cg = state.caregiver_notification;
-  document.querySelector('#caregiver-status').innerHTML = `<span class="${statusClass(cg.status)}">${cg.status}</span><p>${escapeHtml(cg.detail || 'No notification sent yet.')}</p>`;
+  const caregiverHuman = cg.status === STATUS.CONFIRMED
+    ? `<div class="caregiver-human"><strong>Caregiver update sent</strong><span>${escapeHtml(cg.detail || 'The authorized caregiver received the latest journey update.')}</span></div>`
+    : `<p>${escapeHtml(cg.detail || 'No notification sent yet.')}</p>`;
+  document.querySelector('#caregiver-status').innerHTML = `<span class="${statusClass(cg.status)}">${cg.status}</span>${caregiverHuman}`;
   const es = state.escalation_state;
   document.querySelector('#escalation-status').innerHTML = `<span class="${statusClass(es.status)}">${es.status}</span><p>${escapeHtml(es.detail || 'No active escalation.')}</p>`;
 
@@ -56,6 +92,33 @@ function render() {
 
   const journeyComplete = state.home_arrival.status === STATUS.COMPLETED;
   document.body.dataset.complete = String(journeyComplete);
+}
+
+function humanSummary(s) {
+  const failedOutbound = s.transport_request.status === STATUS.FAILED;
+  const pickupDone = [STATUS.CONFIRMED, STATUS.COMPLETED].includes(s.pickup.status);
+  const clinicDone = [STATUS.CONFIRMED, STATUS.COMPLETED].includes(s.clinic_arrival.status);
+  const returnFailed = [STATUS.FAILED, STATUS.NEEDS_REVIEW].includes(s.return_trip.status) || s.escalation_state.status === STATUS.NEEDS_REVIEW;
+  const homeDone = s.home_arrival.status === STATUS.COMPLETED;
+  let title = 'Checking whether Maria’s scheduled ride actually arrived.';
+  let detail = 'The appointment is confirmed, but pickup still needs evidence.';
+  if (failedOutbound && !pickupDone) { title = 'Maria’s scheduled ride did not arrive. CareRoute is recovering the trip.'; detail = 'The failed ride stays failed; a backup can be arranged and the caregiver can be informed without pretending pickup happened.'; }
+  if (s.transport_request.status === STATUS.CONFIRMED && !pickupDone) { title = 'A replacement ride is confirmed — but Maria has not been marked picked up.'; detail = 'CareRoute separates “ride booked” from “patient picked up” and waits for real pickup confirmation.'; }
+  if (pickupDone && !clinicDone) { title = 'Maria is in transit. Clinic arrival is still open.'; detail = 'The ride handoff is verified, but CareRoute will not close the clinic step until arrival is confirmed.'; }
+  if (clinicDone && !returnFailed) { title = 'Maria reached the clinic. The outbound care journey is verified.'; detail = 'Her caregiver has confirmation; the return trip remains a separate handoff to verify later.'; }
+  if (returnFailed && !homeDone) { title = 'The return ride hit an exception. Home arrival remains unresolved.'; detail = 'CareRoute keeps the failed return handoff visible and routes the case to the approved human-review path.'; }
+  if (homeDone) { title = 'Maria is home. Every required handoff is complete.'; detail = 'The journey closed only after evidence supported the final home-arrival confirmation.'; }
+  return {
+    title, detail,
+    ride: failedOutbound && !pickupDone ? 'Scheduled ride failed' : pickupDone ? 'Pickup verified' : s.transport_request.status === STATUS.CONFIRMED ? 'Backup confirmed' : 'Waiting',
+    clinic: clinicDone ? 'Arrival verified' : 'Not yet verified',
+    returnTrip: returnFailed ? 'Exception — human review' : s.return_trip.status === STATUS.COMPLETED ? 'Completed' : 'Not started',
+    home: homeDone ? 'Arrival verified' : 'Not yet verified',
+    transportState: failedOutbound && !pickupDone ? 'bad' : pickupDone || s.transport_request.status === STATUS.CONFIRMED ? 'good' : '',
+    clinicState: clinicDone ? 'good' : '',
+    returnState: returnFailed ? 'review' : s.return_trip.status === STATUS.COMPLETED ? 'good' : '',
+    homeState: homeDone ? 'good' : ''
+  };
 }
 
 function nextLabel(action) {
@@ -99,3 +162,6 @@ function nextSpoken(action) {
 }
 
 render();
+if (new URLSearchParams(location.search).get('focus') === 'proof') {
+  requestAnimationFrame(() => document.querySelector('#proof')?.scrollIntoView({ block: 'start' }));
+}

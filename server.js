@@ -14,7 +14,8 @@ const mime = {
 };
 
 http.createServer((req, res) => {
-  const requested = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+  const pathname = req.url.split('?')[0];
+  const requested = pathname === '/' ? '/index.html' : pathname;
   const safePath = path.normalize(requested).replace(/^(\.\.[/\\])+/, '');
   const filePath = path.join(root, safePath);
   if (!filePath.startsWith(root)) {

@@ -3,80 +3,130 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="CareRoute Guardian for Alexa+ — evidence-backed care-journey orchestration simulation." />
+  <meta name="description" content="CareRoute Guardian for Alexa+ — a simulated recurring-care journey that verifies every important handoff." />
   <title>CareRoute Guardian for Alexa+</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="proof-focus.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><div class="brand-mark">CR</div><div><strong>CareRoute Guardian</strong><span>for Alexa+ · simulated experience</span></div></div>
-    <div class="header-actions"><button id="reset" class="ghost">Reset</button><button id="run-demo" class="secondary">Run 45-sec judge path</button></div>
+    <div class="brand">
+      <div class="brand-mark">CR</div>
+      <div><strong>CareRoute Guardian</strong><span>for Alexa+ · simulated experience</span></div>
+    </div>
+    <div class="header-actions">
+      <span class="safety-chip">Synthetic demo data</span>
+      <button id="reset" class="ghost">Reset</button>
+      <button id="run-demo" class="secondary">Run judge path</button>
+    </div>
   </header>
 
   <main>
-    <section class="hero">
-      <div>
-        <div class="eyebrow">Recurring care · dialysis scenario · synthetic data only</div>
-        <h1>Never confuse an attempted handoff with a completed one.</h1>
-        <p>CareRoute Guardian keeps Alexa+ aware of what actually happened across home, transportation, clinic, return transportation, and home.</p>
+    <section class="story-hero">
+      <div class="story-copy">
+        <div class="eyebrow">Recurring dialysis transportation · 8:00 AM appointment</div>
+        <h1>Maria’s ride failed. CareRoute makes sure her care journey doesn’t.</h1>
+        <p class="lead">Alexa+ keeps the patient, caregiver, transportation, and clinic aligned — and never marks a handoff complete until there is evidence it actually happened.</p>
       </div>
-      <div class="rule-card"><span>CORE RULE</span><strong>VERIFY → RECONCILE → ESCALATE OR CONTINUE</strong></div>
+      <div class="patient-card">
+        <span class="patient-label">SYNTHETIC PATIENT STORY</span>
+        <div class="patient-name-row"><div class="avatar avatar-face" aria-label="Synthetic portrait of Maria"><svg viewBox="0 0 64 64" role="img" aria-hidden="true"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#57d8ff"/><stop offset="1" stop-color="#a997ff"/></linearGradient></defs><circle cx="32" cy="32" r="31" fill="url(#bg)"/><path d="M18 56c2-10 9-15 14-15s12 5 14 15" fill="#173047"/><ellipse cx="32" cy="29" rx="13" ry="15" fill="#c9875b"/><path d="M19 29c0-11 6-18 14-18 9 0 15 7 15 18-3-5-8-8-15-8-6 0-10 2-14 8z" fill="#2f241f"/><circle cx="27" cy="30" r="1.5" fill="#1d1a18"/><circle cx="37" cy="30" r="1.5" fill="#1d1a18"/><path d="M27 37c3 2 7 2 10 0" fill="none" stroke="#7d4938" stroke-width="1.6" stroke-linecap="round"/></svg></div><div><strong>Maria</strong><span>Fictional recurring-care patient</span></div></div>
+        <dl>
+          <div><dt>Appointment</dt><dd>8:00 AM</dd></div>
+          <div><dt>Ride expected</dt><dd>7:15 AM</dd></div>
+          <div><dt>Caregiver</dt><dd>Authorized</dd></div>
+        </dl>
+      </div>
     </section>
 
-    <section class="metrics">
-      <div><span>Current action</span><strong id="current-action">—</strong></div>
-      <div><span>Unresolved</span><strong id="unresolved-count">0</strong></div>
-      <div><span>Evidence records</span><strong id="evidence-count">0</strong></div>
-      <div><span>Audit events</span><strong id="history-count">0</strong></div>
+    <section class="journey-strip" aria-label="Care journey">
+      <div class="journey-step" data-key="home-start"><span>1</span><div><strong>Home</strong><small>Ready for pickup</small></div></div>
+      <div class="journey-arrow">→</div>
+      <div class="journey-step" data-key="transport"><span>2</span><div><strong>Ride</strong><small id="ride-short">Waiting</small></div></div>
+      <div class="journey-arrow">→</div>
+      <div class="journey-step" data-key="clinic"><span>3</span><div><strong>Clinic</strong><small id="clinic-short">Not yet verified</small></div></div>
+      <div class="journey-arrow">→</div>
+      <div class="journey-step" data-key="return"><span>4</span><div><strong>Return ride</strong><small id="return-short">Not started</small></div></div>
+      <div class="journey-arrow">→</div>
+      <div class="journey-step" data-key="home-end"><span>5</span><div><strong>Home</strong><small id="home-short">Not yet verified</small></div></div>
     </section>
 
-    <section class="workspace">
-      <aside class="panel journey-panel">
-        <div class="panel-title"><div><span>01</span><h2>Care journey</h2></div><small>Every handoff has its own state.</small></div>
-        <div id="timeline" class="timeline"></div>
-      </aside>
+    <section class="status-banner">
+      <div class="status-icon">●</div>
+      <div class="status-main"><span>WHAT’S HAPPENING NOW</span><strong id="human-status">Checking whether Maria’s scheduled ride actually arrived.</strong><p id="human-detail">The appointment is confirmed, but pickup still needs evidence.</p></div>
+      <div class="rule-mini"><span>CARE ROUTE RULE</span><strong>Verify → reconcile → continue or escalate</strong></div>
+    </section>
 
+    <section class="judge-grid">
       <section class="panel conversation-panel">
-        <div class="panel-title"><div><span>02</span><h2>Alexa+ conversation</h2></div><small>Agentic simulation with deterministic orchestration.</small></div>
+        <div class="panel-title">
+          <div><span>01</span><h2>What Maria hears from Alexa+</h2></div>
+          <small>Plain-language guidance, not a technical status dump.</small>
+        </div>
         <div id="conversation" class="conversation"></div>
         <form id="utterance-form" class="utterance-form">
-          <input id="utterance" aria-label="Alexa utterance" placeholder="Ask: Alexa, is my dialysis ride coming?" autocomplete="off" />
+          <input id="utterance" aria-label="Alexa utterance" placeholder="Ask Alexa about the ride…" autocomplete="off" />
           <button type="submit">Send</button>
         </form>
         <div class="quick-prompts">
-          <button data-utterance="Alexa, is my dialysis ride coming?">Ride status</button>
+          <button data-utterance="Alexa, is my dialysis ride coming?">Is my ride coming?</button>
           <button data-utterance="Alexa, continue.">Continue</button>
           <button data-utterance="Alexa, why?">Why?</button>
         </div>
         <button id="next-action" class="primary">Check scheduled ride</button>
-        <div class="next-code">Recommended state action: <code id="next-code">CHECK_RIDE</code></div>
+        <div class="next-code proof-only">Recommended state action: <code id="next-code">CHECK_RIDE</code></div>
       </section>
 
-      <aside class="panel guardian-panel">
-        <div class="panel-title"><div><span>03</span><h2>Guardian logic</h2></div><small>Evidence before completion.</small></div>
-        <div class="why-card"><span>WHY THIS ACTION?</span><p id="why-action">—</p></div>
-        <div class="split-card"><h3>Evidence supporting next step</h3><ul id="evidence-reason-list"></ul></div>
-        <div class="split-card warning"><h3>Still unresolved</h3><ul id="unresolved-list"></ul></div>
-        <div class="mini-state"><span>Caregiver</span><div id="caregiver-status"></div></div>
-        <div class="mini-state"><span>Escalation</span><div id="escalation-status"></div></div>
-      </aside>
+      <section class="panel outcome-panel">
+        <div class="panel-title">
+          <div><span>02</span><h2>What CareRoute is protecting</h2></div>
+          <small>Every real-world handoff stays open until it is verified.</small>
+        </div>
+        <div class="plain-card primary-plain">
+          <span>NEXT SAFE ACTION</span>
+          <strong id="current-action">—</strong>
+          <p id="why-action">—</p>
+        </div>
+        <div class="outcome-split">
+          <div class="outcome-box"><span>Caregiver</span><div id="caregiver-status"></div></div>
+          <div class="outcome-box"><span>Escalation</span><div id="escalation-status"></div></div>
+        </div>
+        <div class="plain-card unresolved-card">
+          <span>STILL UNRESOLVED</span>
+          <ul id="unresolved-list"></ul>
+        </div>
+        <div class="plain-card evidence-summary">
+          <span>WHY THIS IS ALLOWED</span>
+          <ul id="evidence-reason-list"></ul>
+        </div>
+      </section>
     </section>
 
-    <section class="lower-grid">
-      <section class="panel evidence-panel">
-        <div class="panel-title"><div><span>04</span><h2>Evidence ledger</h2></div><small>Deterministic, auditable records.</small></div>
-        <div id="evidence-list" class="evidence-list"></div>
-      </section>
-      <section class="panel wellness-panel">
-        <div class="panel-title"><div><span>05</span><h2>Authorized wellness context</h2></div><small>Synthetic adapter · never diagnostic.</small></div>
-        <div id="wellness-list" class="wellness-list"></div>
-        <p id="wellness-boundary" class="boundary"></p>
-        <div class="safety-banner"><strong>Safety boundary</strong><span>No diagnosis · no treatment decisions · no emergency determination · human review when policy requires it.</span></div>
-      </section>
+    <section id="proof" class="proof-section">
+      <div class="proof-heading">
+        <div><span class="eyebrow">Judge proof</span><h2>The technical layer is inspectable — but it stays behind the human experience.</h2></div>
+        <div class="proof-stats"><div><span>Tests</span><strong>24/24</strong></div><div><span>Evidence</span><strong id="evidence-count">0</strong></div><div><span>Audit events</span><strong id="history-count">0</strong></div><div><span>Unresolved</span><strong id="unresolved-count">0</strong></div></div>
+      </div>
+      <div class="proof-grid">
+        <section class="panel journey-panel">
+          <div class="panel-title"><div><span>03</span><h2>Verified handoffs</h2></div><small>Attempted ≠ completed.</small></div>
+          <div id="timeline" class="timeline"></div>
+        </section>
+        <section class="panel evidence-panel">
+          <div class="panel-title"><div><span>04</span><h2>Evidence ledger</h2></div><small>Deterministic, auditable records.</small></div>
+          <div id="evidence-list" class="evidence-list"></div>
+        </section>
+        <section class="panel wellness-panel">
+          <div class="panel-title"><div><span>05</span><h2>Authorized wellness context</h2></div><small>Synthetic context, never diagnosis.</small></div>
+          <div id="wellness-list" class="wellness-list"></div>
+          <p id="wellness-boundary" class="boundary"></p>
+          <div class="safety-banner"><strong>Safety boundary</strong><span>No diagnosis · no treatment decisions · no emergency determination · human review when policy requires it.</span></div>
+        </section>
+      </div>
     </section>
   </main>
 
-  <footer>Hackathon simulation. Synthetic data only. Named transport or wearable vendors are architecture examples, not affiliations or dependencies.</footer>
+  <footer>Hackathon simulation · synthetic data only · transportation and wearable providers are represented as provider-neutral adapters.</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>
